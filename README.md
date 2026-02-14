@@ -44,3 +44,8 @@ SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` ha
 - `DISCORD_CLIENT_SECRET`
 - `DISCORD_REDIRECT_URI`
 - `SESSION_SECRET`
+
+
+## Deployment
+- Vercel project: https://vercel.com/atoms-ninja/999chanz/
+- After each deploy, update `DISCORD_REDIRECT_URI` to: `https://<your-production-domain>/auth/discord/callback`.
