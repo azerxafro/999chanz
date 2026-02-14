@@ -1,5 +1,5 @@
 import { json, redirect } from '@sveltejs/kit';
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { RequestHandler } from './$types';
 
 type DiscordTokenResponse = {
@@ -13,7 +13,14 @@ type DiscordUser = {
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
   const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
   if (!code) return json({ error: 'Missing code' }, { status: 400 });
+
+  const storedState = cookies.get('discord_oauth_state');
+  cookies.delete('discord_oauth_state', { path: '/' });
+  if (!state || !storedState || !timingSafeEqual(Buffer.from(state), Buffer.from(storedState))) {
+    return json({ error: 'Invalid OAuth state' }, { status: 400 });
+  }
 
   if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET || !process.env.DISCORD_REDIRECT_URI) {
     return json({ error: 'Missing Discord OAuth configuration' }, { status: 500 });

@@ -38,6 +38,7 @@ SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` ha
 - `GET /auth/discord/start`
 - `GET /auth/discord/callback`
 - `GET /auth/logout`
+- Includes OAuth `state` cookie validation for CSRF protection.
 
 ## Required env vars
 - `DISCORD_CLIENT_ID`
