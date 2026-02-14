@@ -11,9 +11,6 @@ build/
 *.log
 npm-debug.log*
 
-# Lock files
-package-lock.json
-
 # Environment
 .env
 .env.*
