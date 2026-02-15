@@ -12,6 +12,15 @@ type Payload = {
   magicHeadBase64: string;
 };
 
+function getObjectKeyFromBlobUrl(blobUrl: string): string | null {
+  try {
+    const parsed = new URL(blobUrl);
+    return decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  } catch {
+    return null;
+  }
+}
+
 export const POST: RequestHandler = async (event) => {
   const captcha = await verifyTurnstile(event);
   if (captcha) return captcha;
@@ -35,11 +44,17 @@ export const POST: RequestHandler = async (event) => {
   const draft = mediaDrafts.get(payload.draftId);
   if (!draft || draft.userId !== user.id) return fail('draft not found', 404);
   if (draft.committed) return fail('draft already committed', 409);
+  if (Date.now() > draft.expiresAt) return fail('draft upload token expired', 410);
   if (!hasPost(payload.postId)) return fail('post not found', 404);
 
   if (draft.nsfw) {
     const denied = requireNsfwAccepted(event);
     if (denied) return denied;
+  }
+
+  const committedObjectKey = getObjectKeyFromBlobUrl(payload.blobUrl);
+  if (!committedObjectKey || committedObjectKey !== draft.providerMetadata.pathname) {
+    return fail('uploaded blob does not match draft target', 409);
   }
 
   const mime = detectMimeFromMagic(payload.magicHeadBase64);

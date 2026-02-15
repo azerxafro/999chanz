@@ -38,10 +38,16 @@ export type MediaDraft = {
   draftId: string;
   userId: string;
   createdAt: number;
+  expiresAt: number;
   committed: boolean;
   token: string;
-  uploadUrl: string;
   objectKey: string;
+  provider: 'vercel-blob';
+  providerMetadata: {
+    pathname: string;
+    storeId: string | null;
+    allowedContentTypes?: string[];
+  };
   nsfw: boolean;
 };
 

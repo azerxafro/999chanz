@@ -1,6 +1,6 @@
 import { ok, parseJson, requireDiscord, requireNsfwAccepted, verifyTurnstile } from '$lib/server/http';
-import { mediaDrafts } from '$lib/server/state';
 import { makeBlobUploadTarget } from '$lib/server/media';
+import { mediaDrafts } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
 type Payload = { nsfw?: boolean };
@@ -20,16 +20,18 @@ export const POST: RequestHandler = async (event) => {
   }
 
   const draftId = crypto.randomUUID();
-  const target = makeBlobUploadTarget(user.id, draftId);
+  const target = await makeBlobUploadTarget(user.id, draftId);
 
   mediaDrafts.set(draftId, {
     draftId,
     userId: user.id,
     createdAt: Date.now(),
+    expiresAt: target.expiresAt,
     committed: false,
     token: target.token,
-    uploadUrl: target.uploadUrl,
     objectKey: target.objectKey,
+    provider: 'vercel-blob',
+    providerMetadata: target.providerMetadata,
     nsfw: Boolean(payload.nsfw)
   });
 
@@ -38,10 +40,11 @@ export const POST: RequestHandler = async (event) => {
       draftId,
       upload: {
         provider: 'vercel-blob',
-        uploadUrl: target.uploadUrl,
         token: target.token,
         objectKey: target.objectKey,
-        expiresInSeconds: 600
+        expiresAt: target.expiresAt,
+        expiresInSeconds: target.expiresInSeconds,
+        metadata: target.providerMetadata
       }
     },
     201

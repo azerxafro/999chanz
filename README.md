@@ -26,8 +26,13 @@ SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` ha
 - Uses `@sveltejs/adapter-vercel` explicitly in `svelte.config.js`.
 
 
+### Blob environment variables
+- `BLOB_READ_WRITE_TOKEN` (required): Vercel Blob read/write token used server-side to mint client upload tokens.
+- `BLOB_UPLOAD_TOKEN_TTL_SECONDS` (optional): token lifetime override; defaults to `600`.
+
 ### Media flow
-1. Call `POST /api/media/create` to receive a signed direct-upload target (`uploadUrl`, `token`, `objectKey`).
-2. Upload media directly from client to Blob using the returned signed target.
-3. Call `POST /api/media/commit` with `draftId`, `postId`, `blobUrl`, `sizeBytes`, `sha256`, and `magicHeadBase64`.
-4. Server verifies file signature (magic bytes), stores media metadata, and links media to the post.
+1. Client calls `POST /api/media/create` (authenticated + Turnstile as configured).
+2. Server creates a draft and returns Vercel Blob client-token metadata: `token`, `objectKey`, `expiresAt`, and provider metadata (`pathname`, `storeId`, etc.).
+3. Client uploads directly to Blob using `@vercel/blob/client` and the returned token, for example `put(objectKey, file, { access: 'public', token })`.
+4. Client calls `POST /api/media/commit` with `draftId`, `postId`, `blobUrl`, `sizeBytes`, `sha256`, and `magicHeadBase64`.
+5. Server rejects expired drafts or URL/object-key mismatches, verifies file signature (magic bytes), then persists media metadata and post linkage.
