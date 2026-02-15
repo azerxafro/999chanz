@@ -2,12 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { getOrCreateSession } from './state';
 
-const roleOrder: Record<App.UserRole, number> = {
-  user: 0,
-  mod: 1,
-  admin: 2
-};
-
 export function ok(data: unknown, status = 200) {
   return json(data, { status });
 }
@@ -30,16 +24,9 @@ export async function parseJson<T>(event: RequestEvent): Promise<T | null> {
 
 export function requireDiscord(event: RequestEvent) {
   const session = getOrCreateSession(event.locals.sessionId);
-  const user = event.locals.user;
+  const user = event.locals.user ?? event.locals.discordUser;
   if (!user) return fail('discord login required', 401);
-  session.user = user;
-  return user;
-}
-
-export function requireRole(event: RequestEvent, role: App.UserRole) {
-  const user = requireDiscord(event);
-  if (user instanceof Response) return user;
-  if (roleOrder[user.role] < roleOrder[role]) return fail(`${role} role required`, 403);
+  session.user = { id: user.id, username: user.username };
   return user;
 }
 
@@ -47,14 +34,17 @@ export function requireNsfwAccepted(event: RequestEvent) {
   const auth = requireDiscord(event);
   if (auth instanceof Response) return auth;
 
+  if (event.locals.user?.nsfwAcceptedAt) {
+    return null;
+  }
+
   const session = getOrCreateSession(event.locals.sessionId);
-  if (!session.nsfwAccepted) return fail('nsfw gate not accepted', 403);
+  if (!session.nsfwAccepted) return fail('Age verification required', 403);
   return null;
 }
 
 export async function verifyTurnstile(event: RequestEvent) {
-  const platformEnv = (event.platform as { env?: { TURNSTILE_SECRET?: string } } | null)?.env;
-  const secret = platformEnv?.TURNSTILE_SECRET;
+  const secret = event.platform?.env?.TURNSTILE_SECRET as string | undefined;
   if (!secret) return null;
 
   const token = event.request.headers.get('x-turnstile-token');

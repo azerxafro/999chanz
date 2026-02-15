@@ -1,34 +1,63 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
-
-const validRoles: App.UserRole[] = ['user', 'mod', 'admin'];
-
-function parseRole(role: string | null): App.UserRole {
-  if (!role) return 'user';
-  return validRoles.includes(role as App.UserRole) ? (role as App.UserRole) : 'user';
-}
+import { createHmac } from 'node:crypto';
 
 function extractDiscordUser(request: Request) {
   const auth = request.headers.get('authorization');
   if (auth?.startsWith('Bearer discord:')) {
-    const payload = auth.replace('Bearer discord:', '').trim();
-    const [id, role] = payload.split(':');
-    if (id) return { id, username: `discord_${id}`, role: parseRole(role ?? null) };
+    const id = auth.replace('Bearer discord:', '').trim();
+    if (id) return { id, username: `discord_${id}` };
   }
 
   const headerUser = request.headers.get('x-discord-user');
-  if (headerUser) {
-    const role = parseRole(request.headers.get('x-user-role') ?? request.headers.get('x-discord-role'));
-    return { id: headerUser, username: `discord_${headerUser}`, role };
-  }
+  if (headerUser) return { id: headerUser, username: `discord_${headerUser}` };
 
   return null;
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
-  const sid = event.cookies.get('sid') ?? crypto.randomUUID();
-  event.locals.sessionId = sid;
-  event.locals.user = extractDiscordUser(event.request);
+function parseSignedSession(session: string, secret: string) {
+  const decoded = Buffer.from(session, 'base64').toString();
+  const separator = decoded.lastIndexOf('.');
+  if (separator <= 0) return null;
 
+  const payload = decoded.slice(0, separator);
+  const signature = decoded.slice(separator + 1);
+
+  const expected = createHmac('sha256', secret).update(payload).digest('hex');
+  if (signature !== expected) return null;
+
+  return JSON.parse(payload) as { id: string; username: string; nsfwAcceptedAt?: string | null };
+}
+
+export const handle: Handle = async ({ event, resolve }) => {
+  const existingSid = event.cookies.get('sid');
+  const sid = existingSid ?? crypto.randomUUID();
+  event.locals.sessionId = sid;
+
+  if (!existingSid) {
+    event.cookies.set('sid', sid, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      maxAge: 60 * 60 * 24 * 30
+    });
+  }
+  event.locals.discordUser = extractDiscordUser(event.request);
+  event.locals.user = null;
+
+  const sessionCookie = event.cookies.get('session');
+  const secret = process.env.SESSION_SECRET;
+  if (sessionCookie && secret) {
+    try {
+      const parsed = parseSignedSession(sessionCookie, secret);
+      if (parsed) {
+        event.locals.user = parsed;
+        event.locals.discordUser = { id: parsed.id, username: parsed.username };
+      }
+    } catch {
+      event.locals.user = null;
+    }
+  }
 
   if (event.request.method === 'OPTIONS' && event.url.pathname.startsWith('/api/')) {
     return new Response(null, {
@@ -36,24 +65,16 @@ export const handle: Handle = async ({ event, resolve }) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-discord-user, x-user-role, x-discord-role, x-turnstile-token'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-discord-user, x-turnstile-token'
       }
     });
   }
 
   const response = await resolve(event);
 
-  event.cookies.set('sid', sid, {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30
-  });
-
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-discord-user, x-user-role, x-discord-role, x-turnstile-token');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-discord-user, x-turnstile-token');
 
   return response;
 };

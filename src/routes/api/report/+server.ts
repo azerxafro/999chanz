@@ -20,8 +20,7 @@ export const POST: RequestHandler = async (event) => {
     targetType: payload.targetType,
     targetId: payload.targetId,
     reason: payload.reason,
-    reporterId: user.id,
-    status: 'open'
+    reporterId: user.id
   });
 
   return ok({ ok: true, id }, 201);
