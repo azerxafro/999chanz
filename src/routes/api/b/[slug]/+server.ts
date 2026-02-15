@@ -2,8 +2,8 @@ import { ok, fail, requireNsfwAccepted } from '$lib/server/http';
 import { boards, threads } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = ({ params, ...event }) => {
-  const board = boards.find((entry) => entry.slug === params.slug);
+export const GET: RequestHandler = (event) => {
+  const board = boards.find((entry) => entry.slug === event.params.slug);
   if (!board) return fail('board not found', 404);
 
   if (board.nsfw) {

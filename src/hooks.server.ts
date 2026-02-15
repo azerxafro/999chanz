@@ -1,14 +1,25 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 
+const validRoles: App.UserRole[] = ['user', 'mod', 'admin'];
+
+function parseRole(role: string | null): App.UserRole {
+  if (!role) return 'user';
+  return validRoles.includes(role as App.UserRole) ? (role as App.UserRole) : 'user';
+}
+
 function extractDiscordUser(request: Request) {
   const auth = request.headers.get('authorization');
   if (auth?.startsWith('Bearer discord:')) {
-    const id = auth.replace('Bearer discord:', '').trim();
-    if (id) return { id, username: `discord_${id}` };
+    const payload = auth.replace('Bearer discord:', '').trim();
+    const [id, role] = payload.split(':');
+    if (id) return { id, username: `discord_${id}`, role: parseRole(role ?? null) };
   }
 
   const headerUser = request.headers.get('x-discord-user');
-  if (headerUser) return { id: headerUser, username: `discord_${headerUser}` };
+  if (headerUser) {
+    const role = parseRole(request.headers.get('x-user-role') ?? request.headers.get('x-discord-role'));
+    return { id: headerUser, username: `discord_${headerUser}`, role };
+  }
 
   return null;
 }
@@ -16,7 +27,7 @@ function extractDiscordUser(request: Request) {
 export const handle: Handle = async ({ event, resolve }) => {
   const sid = event.cookies.get('sid') ?? crypto.randomUUID();
   event.locals.sessionId = sid;
-  event.locals.discordUser = extractDiscordUser(event.request);
+  event.locals.user = extractDiscordUser(event.request);
 
 
   if (event.request.method === 'OPTIONS' && event.url.pathname.startsWith('/api/')) {
@@ -25,7 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-discord-user, x-turnstile-token'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-discord-user, x-user-role, x-discord-role, x-turnstile-token'
       }
     });
   }
@@ -42,7 +53,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-discord-user, x-turnstile-token');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-discord-user, x-user-role, x-discord-role, x-turnstile-token');
 
   return response;
 };
