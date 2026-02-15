@@ -29,8 +29,19 @@ function parseSignedSession(session: string, secret: string) {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-  const sid = event.cookies.get('sid') ?? crypto.randomUUID();
+  const existingSid = event.cookies.get('sid');
+  const sid = existingSid ?? crypto.randomUUID();
   event.locals.sessionId = sid;
+
+  if (!existingSid) {
+    event.cookies.set('sid', sid, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      maxAge: 60 * 60 * 24 * 30
+    });
+  }
   event.locals.discordUser = extractDiscordUser(event.request);
   event.locals.user = null;
 
@@ -60,14 +71,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   const response = await resolve(event);
-
-  event.cookies.set('sid', sid, {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30
-  });
 
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
