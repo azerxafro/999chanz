@@ -2,8 +2,8 @@ import { ok, fail, requireNsfwAccepted } from '$lib/server/http';
 import { threads } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = ({ params, ...event }) => {
-  const thread = threads.find((entry) => entry.id === params.id);
+export const GET: RequestHandler = (event) => {
+  const thread = threads.find((entry) => entry.id === event.params.id);
   if (!thread) return fail('thread not found', 404);
 
   if (thread.nsfw) {
