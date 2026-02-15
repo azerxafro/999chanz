@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
   const storedState = cookies.get('discord_oauth_state');
   cookies.delete('discord_oauth_state', { path: '/' });
-  if (!state || !storedState || !timingSafeEqual(Buffer.from(state), Buffer.from(storedState))) {
+  if (!state || !storedState || state.length !== storedState.length || !timingSafeEqual(Buffer.from(state), Buffer.from(storedState))) {
     return json({ error: 'Invalid OAuth state' }, { status: 400 });
   }
 
