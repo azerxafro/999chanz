@@ -1,7 +1,7 @@
 {
-  "name": "999chanz-sveltekit-api",
+  "name": "monadelta-sveltekit-api",
   "private": true,
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -13,7 +13,7 @@
     "@sveltejs/kit": "^2.51.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-vercel": "^6.1.0",
+    "@sveltejs/adapter-vercel": "^5.6.3",
     "@types/node": "^22.0.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

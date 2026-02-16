@@ -1,11 +1,13 @@
 # Dependencies
 node_modules/
+.pnpm-store
 
 # Build outputs
 .svelte-kit/
 build/
 .vercel/
 .output/
+build_error.log
 
 # Logs
 *.log
@@ -19,3 +21,5 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*

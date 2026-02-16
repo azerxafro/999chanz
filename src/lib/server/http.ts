@@ -10,7 +10,7 @@ export function fail(message: string, status = 400) {
   return json({ error: message }, { status });
 }
 
-export async function parseJson<T>(event: RequestEvent): Promise<T | null> {
+export async function parseJson<T>(event: Pick<RequestEvent, 'request'>): Promise<T | null> {
   if (!event.request.headers.get('content-type')?.includes('application/json')) {
     return null;
   }
@@ -22,7 +22,7 @@ export async function parseJson<T>(event: RequestEvent): Promise<T | null> {
   }
 }
 
-export function requireDiscord(event: RequestEvent) {
+export function requireDiscord(event: { locals: App.Locals }) {
   const session = getOrCreateSession(event.locals.sessionId);
   const user = event.locals.user ?? event.locals.discordUser;
   if (!user) return fail('discord login required', 401);
@@ -30,7 +30,7 @@ export function requireDiscord(event: RequestEvent) {
   return user;
 }
 
-export function requireNsfwAccepted(event: RequestEvent) {
+export function requireNsfwAccepted(event: { locals: App.Locals }) {
   const auth = requireDiscord(event);
   if (auth instanceof Response) return auth;
 
@@ -43,7 +43,7 @@ export function requireNsfwAccepted(event: RequestEvent) {
   return null;
 }
 
-export async function verifyTurnstile(event: RequestEvent) {
+export async function verifyTurnstile(event: Pick<RequestEvent, 'request' | 'platform'>) {
   const secret = event.platform?.env?.TURNSTILE_SECRET as string | undefined;
   if (!secret) return null;
 

@@ -1,8 +1,9 @@
-# 999chanz SvelteKit API
+# Monadelta SvelteKit API
 
 SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` handlers.
 
 ## API routes
+
 - `GET /api/boards`
 - `GET /api/b/:slug`
 - `GET /api/t/:id`
@@ -14,6 +15,7 @@ SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` ha
 - `POST /api/nsfw/accept`
 
 ## Middleware and guards
+
 - CORS headers via `src/hooks.server.ts`
 - Global error handling via `handleError`
 - JSON parsing helper for POST payloads
@@ -22,12 +24,13 @@ SvelteKit server routes on the same domain (e.g. `/api/*`) using `+server.ts` ha
 - NSFW gate requiring Discord login and accepted session state (`/api/nsfw/accept`)
 
 ## Notes
+
 - Uses cookie-based session id (`sid`) and in-memory server state for demo purposes.
 - Uses `@sveltejs/adapter-vercel` explicitly in `svelte.config.js`.
 - Uses `@sveltejs/kit@^2.51.0` + `svelte@^5` to avoid Vercel dependency resolution conflicts.
 
-
 ### Media flow
+
 1. Call `POST /api/media/create` to receive a signed direct-upload target (`uploadUrl`, `token`, `objectKey`).
 2. Upload media directly from client to Blob using the returned signed target.
 3. Call `POST /api/media/commit` with `draftId`, `postId`, `blobUrl`, `sizeBytes`, `sha256`, and `magicHeadBase64`.
