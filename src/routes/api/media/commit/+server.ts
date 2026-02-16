@@ -1,12 +1,11 @@
 import { ok, fail, parseJson, requireDiscord, requireNsfwAccepted, verifyTurnstile } from '$lib/server/http';
-import { detectMimeFromMagic } from '$lib/server/media';
-import { hasPost, mediaDrafts, mediaRecords } from '$lib/server/state';
+import { detectMimeFromMagic, getPublicUrl } from '$lib/server/media';
+import { hasPost, getMediaDraft, commitMediaDraft, createMediaRecord } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
 type Payload = {
   draftId: string;
   postId: string;
-  blobUrl: string;
   sizeBytes: number;
   sha256: string;
   magicHeadBase64: string;
@@ -23,7 +22,6 @@ export const POST: RequestHandler = async (event) => {
   if (
     !payload?.draftId ||
     !payload.postId ||
-    !payload.blobUrl ||
     !payload.sha256 ||
     !payload.magicHeadBase64 ||
     !Number.isFinite(payload.sizeBytes) ||
@@ -32,10 +30,10 @@ export const POST: RequestHandler = async (event) => {
     return fail('invalid payload', 400);
   }
 
-  const draft = mediaDrafts.get(payload.draftId);
-  if (!draft || draft.userId !== user.id) return fail('draft not found', 404);
+  const draft = await getMediaDraft(payload.draftId);
+  if (!draft || draft.user_id !== user.id) return fail('draft not found', 404);
   if (draft.committed) return fail('draft already committed', 409);
-  if (!hasPost(payload.postId)) return fail('post not found', 404);
+  if (!(await hasPost(payload.postId))) return fail('post not found', 404);
 
   if (draft.nsfw) {
     const denied = requireNsfwAccepted(event);
@@ -45,21 +43,21 @@ export const POST: RequestHandler = async (event) => {
   const mime = detectMimeFromMagic(payload.magicHeadBase64);
   if (!mime) return fail('unsupported or invalid media signature', 415);
 
-  draft.committed = true;
+  await commitMediaDraft(payload.draftId);
 
+  const url = getPublicUrl(draft.object_key);
   const mediaId = crypto.randomUUID();
-  mediaRecords.push({
+  await createMediaRecord({
     id: mediaId,
-    draftId: draft.draftId,
-    objectKey: draft.objectKey,
-    url: payload.blobUrl,
+    draft_id: draft.draft_id,
+    object_key: draft.object_key,
+    url,
     mime,
-    sizeBytes: payload.sizeBytes,
+    size_bytes: payload.sizeBytes,
     sha256: payload.sha256,
-    linkedPostId: payload.postId,
-    createdBy: user.id,
-    createdAt: Date.now()
+    linked_post_id: payload.postId,
+    created_by: user.id
   });
 
-  return ok({ ok: true, mediaId, mime, linkedPostId: payload.postId, url: payload.blobUrl }, 201);
+  return ok({ ok: true, mediaId, mime, linkedPostId: payload.postId, url }, 201);
 };

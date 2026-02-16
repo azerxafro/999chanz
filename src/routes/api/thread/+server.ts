@@ -1,5 +1,5 @@
 import { ok, fail, parseJson, requireDiscord, requireNsfwAccepted, verifyTurnstile } from '$lib/server/http';
-import { boards, threads } from '$lib/server/state';
+import { getBoard, createThread } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
 type Payload = {
@@ -19,7 +19,7 @@ export const POST: RequestHandler = async (event) => {
   const payload = await parseJson<Payload>(event);
   if (!payload?.boardSlug || !payload.title || !payload.body) return fail('invalid payload', 400);
 
-  const board = boards.find((entry) => entry.slug === payload.boardSlug);
+  const board = await getBoard(payload.boardSlug);
   if (!board) return fail('board not found', 404);
 
   if (board.nsfw || payload.nsfw) {
@@ -27,24 +27,14 @@ export const POST: RequestHandler = async (event) => {
     if (denied) return denied;
   }
 
-  const id = String(Date.now());
-  threads.unshift({
-    id,
-    boardSlug: payload.boardSlug,
-    title: payload.title,
-    nsfw: Boolean(payload.nsfw || board.nsfw),
-    createdAt: Date.now(),
-    posts: [
-      {
-        id: `${id}-p1`,
-        threadId: id,
-        authorId: user.id,
-        authorName: user.username,
-        body: payload.body,
-        createdAt: Date.now()
-      }
-    ]
-  });
+  const thread = await createThread(
+    payload.boardSlug,
+    payload.title,
+    payload.body,
+    user.id,
+    user.username,
+    Boolean(payload.nsfw || board.nsfw)
+  );
 
-  return ok({ id }, 201);
+  return ok({ id: thread.id }, 201);
 };

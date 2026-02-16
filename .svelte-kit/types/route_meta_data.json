@@ -1,5 +1,8 @@
 {
-	"/": [],
+	"/": [
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/api/boards": [
 		"src/routes/api/boards/+server.ts"
 	],
@@ -37,11 +40,17 @@
 		"src/routes/auth/logout/+server.ts"
 	],
 	"/b/[slug]": [
-		"src/routes/b/[slug]/+page.ts"
+		"src/routes/b/[slug]/+page.ts",
+		"src/routes/+layout.server.ts"
 	],
-	"/create": [],
-	"/nsfw": [],
+	"/create": [
+		"src/routes/+layout.server.ts"
+	],
+	"/nsfw": [
+		"src/routes/+layout.server.ts"
+	],
 	"/t/[id]": [
-		"src/routes/t/[id]/+page.ts"
+		"src/routes/t/[id]/+page.ts",
+		"src/routes/+layout.server.ts"
 	]
 }

@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 const SIGNATURES: Array<{ mime: string; bytes: number[] }> = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47] },
@@ -25,10 +27,24 @@ export function detectMimeFromMagic(headBase64: string): string | null {
   return null;
 }
 
-export function makeBlobUploadTarget(userId: string, draftId: string) {
-  const objectKey = `media/${userId}/${draftId}`;
-  const tokenPayload = `${objectKey}:${Date.now()}`;
-  const token = btoa(tokenPayload);
-  const uploadUrl = `https://blob.vercel-storage.example/upload/${objectKey}?token=${encodeURIComponent(token)}`;
-  return { token, objectKey, uploadUrl };
+export async function createSignedUploadUrl(userId: string, draftId: string) {
+  const objectKey = `${userId}/${draftId}`;
+
+  const { data, error } = await supabase.storage
+    .from('media')
+    .createSignedUploadUrl(objectKey);
+
+  if (error) throw error;
+
+  return {
+    objectKey,
+    signedUrl: data.signedUrl,
+    token: data.token,
+    path: data.path
+  };
+}
+
+export function getPublicUrl(objectKey: string): string {
+  const { data } = supabase.storage.from('media').getPublicUrl(objectKey);
+  return data.publicUrl;
 }

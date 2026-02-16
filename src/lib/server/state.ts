@@ -1,3 +1,7 @@
+import { supabase } from './supabase';
+
+// ── Types ──────────────────────────────────────────────
+
 export type DiscordUser = {
   id: string;
   username: string;
@@ -18,75 +22,45 @@ export type Board = {
 
 export type Post = {
   id: string;
-  threadId: string;
-  authorId: string;
-  authorName: string;
+  thread_id: string;
+  author_id: string;
+  author_name: string;
   body: string;
-  createdAt: number;
+  created_at: string;
 };
 
 export type Thread = {
   id: string;
-  boardSlug: string;
+  board_slug: string;
   title: string;
   nsfw: boolean;
-  createdAt: number;
-  posts: Post[];
+  created_at: string;
 };
 
 export type MediaDraft = {
-  draftId: string;
-  userId: string;
-  createdAt: number;
+  draft_id: string;
+  user_id: string;
+  created_at: string;
   committed: boolean;
-  token: string;
-  uploadUrl: string;
-  objectKey: string;
+  object_key: string;
   nsfw: boolean;
 };
 
 export type MediaRecord = {
   id: string;
-  draftId: string;
-  objectKey: string;
+  draft_id: string;
+  object_key: string;
   url: string;
   mime: string;
-  sizeBytes: number;
+  size_bytes: number;
   sha256: string;
-  linkedPostId: string;
-  createdBy: string;
-  createdAt: number;
+  linked_post_id: string;
+  created_by: string;
+  created_at: string;
 };
 
-export const boards: Board[] = [
-  { slug: 'tech', name: 'Technology', description: 'Code and tooling', nsfw: false },
-  { slug: 'random', name: 'Random', description: 'Everything else', nsfw: false },
-  { slug: 'adults', name: 'Adults', description: 'NSFW content', nsfw: true }
-];
+// ── Sessions (in-memory — ephemeral per-instance) ──────
 
-export const threads: Thread[] = [
-  {
-    id: '1001',
-    boardSlug: 'tech',
-    title: 'Fast web stacks in 2026',
-    nsfw: false,
-    createdAt: Date.now() - 100_000,
-    posts: [
-      {
-        id: '1001-p1',
-        threadId: '1001',
-        authorId: 'seed',
-        authorName: 'seed',
-        body: 'What are you shipping with?',
-        createdAt: Date.now() - 100_000
-      }
-    ]
-  }
-];
-
-export const reports: Array<{ id: string; targetType: string; targetId: string; reason: string; reporterId: string }> = [];
-export const mediaDrafts = new Map<string, MediaDraft>();
-export const mediaRecords: MediaRecord[] = [];
 export const sessions = new Map<string, Session>();
 
 export function getOrCreateSession(sessionId: string): Session {
@@ -97,6 +71,185 @@ export function getOrCreateSession(sessionId: string): Session {
   return created;
 }
 
-export function hasPost(postId: string): boolean {
-  return threads.some((thread) => thread.posts.some((post) => post.id === postId));
+// ── Boards ─────────────────────────────────────────────
+
+export async function getBoards(): Promise<Board[]> {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('*')
+    .order('slug');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getBoard(slug: string): Promise<Board | null> {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+// ── Threads ────────────────────────────────────────────
+
+export async function getThreadsForBoard(boardSlug: string) {
+  const { data, error } = await supabase
+    .from('threads')
+    .select('id, title, nsfw, created_at')
+    .eq('board_slug', boardSlug)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  // Get post counts
+  const threadIds = (data ?? []).map((t) => t.id);
+  const counts: Record<string, number> = {};
+
+  if (threadIds.length > 0) {
+    const { data: postCounts, error: pcErr } = await supabase
+      .from('posts')
+      .select('thread_id')
+      .in('thread_id', threadIds);
+    if (pcErr) throw pcErr;
+    for (const p of postCounts ?? []) {
+      counts[p.thread_id] = (counts[p.thread_id] ?? 0) + 1;
+    }
+  }
+
+  return (data ?? []).map((t) => ({
+    ...t,
+    postCount: counts[t.id] ?? 0
+  }));
+}
+
+export async function createThread(
+  boardSlug: string,
+  title: string,
+  body: string,
+  authorId: string,
+  authorName: string,
+  nsfw: boolean
+) {
+  const { data: thread, error: tErr } = await supabase
+    .from('threads')
+    .insert({ board_slug: boardSlug, title, nsfw })
+    .select()
+    .single();
+  if (tErr) throw tErr;
+
+  const { error: pErr } = await supabase
+    .from('posts')
+    .insert({
+      thread_id: thread.id,
+      author_id: authorId,
+      author_name: authorName,
+      body
+    });
+  if (pErr) throw pErr;
+
+  return thread;
+}
+
+// ── Thread Details ─────────────────────────────────────
+
+export async function getThread(threadId: string) {
+  const { data: thread, error: tErr } = await supabase
+    .from('threads')
+    .select('*')
+    .eq('id', threadId)
+    .single();
+  if (tErr) return null;
+
+  const { data: posts, error: pErr } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  if (pErr) throw pErr;
+
+  return { ...thread, posts: posts ?? [] };
+}
+
+// ── Posts ───────────────────────────────────────────────
+
+export async function createPost(
+  threadId: string,
+  authorId: string,
+  authorName: string,
+  body: string
+) {
+  const { data, error } = await supabase
+    .from('posts')
+    .insert({
+      thread_id: threadId,
+      author_id: authorId,
+      author_name: authorName,
+      body
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function hasPost(postId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id')
+    .eq('id', postId)
+    .maybeSingle();
+  if (error) return false;
+  return !!data;
+}
+
+// ── Media Drafts ───────────────────────────────────────
+
+export async function createMediaDraft(draft: Omit<MediaDraft, 'created_at'>) {
+  const { error } = await supabase.from('media_drafts').insert(draft);
+  if (error) throw error;
+}
+
+export async function getMediaDraft(draftId: string): Promise<MediaDraft | null> {
+  const { data, error } = await supabase
+    .from('media_drafts')
+    .select('*')
+    .eq('draft_id', draftId)
+    .single();
+  if (error) return null;
+  return data;
+}
+
+export async function commitMediaDraft(draftId: string) {
+  const { error } = await supabase
+    .from('media_drafts')
+    .update({ committed: true })
+    .eq('draft_id', draftId);
+  if (error) throw error;
+}
+
+// ── Media Records ──────────────────────────────────────
+
+export async function createMediaRecord(record: Omit<MediaRecord, 'created_at'>) {
+  const { data, error } = await supabase
+    .from('media_records')
+    .insert(record)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ── Reports ────────────────────────────────────────────
+
+export async function createReport(
+  targetType: string,
+  targetId: string,
+  reason: string,
+  reporterId: string
+) {
+  const { error } = await supabase
+    .from('reports')
+    .insert({ target_type: targetType, target_id: targetId, reason, reporter_id: reporterId });
+  if (error) throw error;
 }

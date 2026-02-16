@@ -1,5 +1,5 @@
 import { ok, fail, parseJson, requireDiscord, requireNsfwAccepted, verifyTurnstile } from '$lib/server/http';
-import { threads } from '$lib/server/state';
+import { getThread, createPost } from '$lib/server/state';
 import type { RequestHandler } from './$types';
 
 type Payload = { threadId: string; body: string };
@@ -14,7 +14,7 @@ export const POST: RequestHandler = async (event) => {
   const payload = await parseJson<Payload>(event);
   if (!payload?.threadId || !payload.body?.trim()) return fail('invalid payload', 400);
 
-  const thread = threads.find((entry) => entry.id === payload.threadId);
+  const thread = await getThread(payload.threadId);
   if (!thread) return fail('thread not found', 404);
 
   if (thread.nsfw) {
@@ -22,15 +22,12 @@ export const POST: RequestHandler = async (event) => {
     if (denied) return denied;
   }
 
-  const postId = `${thread.id}-p${thread.posts.length + 1}`;
-  thread.posts.push({
-    id: postId,
-    threadId: thread.id,
-    authorId: user.id,
-    authorName: user.username,
-    body: payload.body,
-    createdAt: Date.now()
-  });
+  const post = await createPost(
+    thread.id,
+    user.id,
+    user.username,
+    payload.body
+  );
 
-  return ok({ ok: true, postId }, 201);
+  return ok({ ok: true, postId: post.id }, 201);
 };
