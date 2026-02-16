@@ -1,16 +1,21 @@
 declare global {
   namespace App {
-    type UserRole = 'user' | 'mod' | 'admin';
-
-    interface User {
-      id: string;
-      username: string;
-      role: UserRole;
-    }
-
     interface Locals {
-      user: User | null;
+      discordUser: {
+        id: string;
+        username: string;
+      } | null;
+      user: {
+        id: string;
+        username: string;
+        nsfwAcceptedAt?: string | null;
+      } | null;
       sessionId: string;
+    }
+    interface Platform {
+      env?: {
+        TURNSTILE_SECRET?: string;
+      };
     }
   }
 }

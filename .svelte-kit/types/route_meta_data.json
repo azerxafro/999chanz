@@ -1,0 +1,47 @@
+{
+	"/": [],
+	"/api/boards": [
+		"src/routes/api/boards/+server.ts"
+	],
+	"/api/b/[slug]": [
+		"src/routes/api/b/[slug]/+server.ts"
+	],
+	"/api/media/commit": [
+		"src/routes/api/media/commit/+server.ts"
+	],
+	"/api/media/create": [
+		"src/routes/api/media/create/+server.ts"
+	],
+	"/api/nsfw/accept": [
+		"src/routes/api/nsfw/accept/+server.ts"
+	],
+	"/api/post": [
+		"src/routes/api/post/+server.ts"
+	],
+	"/api/report": [
+		"src/routes/api/report/+server.ts"
+	],
+	"/api/thread": [
+		"src/routes/api/thread/+server.ts"
+	],
+	"/api/t/[id]": [
+		"src/routes/api/t/[id]/+server.ts"
+	],
+	"/auth/discord/callback": [
+		"src/routes/auth/discord/callback/+server.ts"
+	],
+	"/auth/discord/start": [
+		"src/routes/auth/discord/start/+server.ts"
+	],
+	"/auth/logout": [
+		"src/routes/auth/logout/+server.ts"
+	],
+	"/b/[slug]": [
+		"src/routes/b/[slug]/+page.ts"
+	],
+	"/create": [],
+	"/nsfw": [],
+	"/t/[id]": [
+		"src/routes/t/[id]/+page.ts"
+	]
+}

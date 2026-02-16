@@ -1,4 +1,7 @@
-export type DiscordUser = App.User;
+export type DiscordUser = {
+  id: string;
+  username: string;
+};
 
 export type Session = {
   id: string;
@@ -13,11 +16,6 @@ export type Board = {
   nsfw: boolean;
 };
 
-export type ModerationAudit = {
-  actedBy: string;
-  actedAt: number;
-};
-
 export type Post = {
   id: string;
   threadId: string;
@@ -25,7 +23,6 @@ export type Post = {
   authorName: string;
   body: string;
   createdAt: number;
-  removed?: ModerationAudit;
 };
 
 export type Thread = {
@@ -59,19 +56,6 @@ export type MediaRecord = {
   linkedPostId: string;
   createdBy: string;
   createdAt: number;
-  removed?: ModerationAudit;
-};
-
-export type Report = {
-  id: string;
-  targetType: string;
-  targetId: string;
-  reason: string;
-  reporterId: string;
-  status: 'open' | 'resolved';
-  resolution?: string;
-  actedBy?: string;
-  actedAt?: number;
 };
 
 export const boards: Board[] = [
@@ -100,7 +84,7 @@ export const threads: Thread[] = [
   }
 ];
 
-export const reports: Report[] = [];
+export const reports: Array<{ id: string; targetType: string; targetId: string; reason: string; reporterId: string }> = [];
 export const mediaDrafts = new Map<string, MediaDraft>();
 export const mediaRecords: MediaRecord[] = [];
 export const sessions = new Map<string, Session>();
@@ -114,13 +98,5 @@ export function getOrCreateSession(sessionId: string): Session {
 }
 
 export function hasPost(postId: string): boolean {
-  return threads.some((thread) => thread.posts.some((post) => post.id === postId && !post.removed));
-}
-
-export function findPost(postId: string): Post | undefined {
-  for (const thread of threads) {
-    const post = thread.posts.find((entry) => entry.id === postId);
-    if (post) return post;
-  }
-  return undefined;
+  return threads.some((thread) => thread.posts.some((post) => post.id === postId));
 }
